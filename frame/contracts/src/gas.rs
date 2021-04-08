@@ -258,24 +258,7 @@ mod tests {
 	#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 	struct SimpleToken(u64);
 	impl Token<Test> for SimpleToken {
-		type Metadata = ();
-		fn calculate_amount(&self, _metadata: &()) -> u64 { self.0 }
-	}
-
-	struct MultiplierTokenMetadata {
-		multiplier: u64,
-	}
-	/// A simple token that charges for the given amount multiplied to
-	/// a multiplier taken from a given metadata.
-	#[derive(Copy, Clone, PartialEq, Eq, Debug)]
-	struct MultiplierToken(u64);
-
-	impl Token<Test> for MultiplierToken {
-		type Metadata = MultiplierTokenMetadata;
-		fn calculate_amount(&self, metadata: &MultiplierTokenMetadata) -> u64 {
-			// Probably you want to use saturating mul in production code.
-			self.0 * metadata.multiplier
-		}
+		fn weight(&self) -> u64 { self.0 }
 	}
 
 	#[test]
@@ -285,33 +268,19 @@ mod tests {
 	}
 
 	#[test]
-	fn simple() {
-		let mut gas_meter = GasMeter::<Test>::new(50000);
-
-		let result = gas_meter
-			.charge(&MultiplierTokenMetadata { multiplier: 3 }, MultiplierToken(10));
-		assert!(!result.is_err());
-
-		assert_eq!(gas_meter.gas_left(), 49_970);
-	}
-
-	#[test]
 	fn tracing() {
 		let mut gas_meter = GasMeter::<Test>::new(50000);
-		assert!(!gas_meter.charge(&(), SimpleToken(1)).is_err());
-		assert!(!gas_meter
-			.charge(&MultiplierTokenMetadata { multiplier: 3 }, MultiplierToken(10))
-			.is_err());
+		assert!(!gas_meter.charge(SimpleToken(1)).is_err());
 
 		let mut tokens = gas_meter.tokens()[0..2].iter();
-		match_tokens!(tokens, SimpleToken(1), MultiplierToken(10),);
+		match_tokens!(tokens, SimpleToken(1),);
 	}
 
 	// This test makes sure that nothing can be executed if there is no gas.
 	#[test]
 	fn refuse_to_execute_anything_if_zero() {
 		let mut gas_meter = GasMeter::<Test>::new(0);
-		assert!(gas_meter.charge(&(), SimpleToken(1)).is_err());
+		assert!(gas_meter.charge(SimpleToken(1)).is_err());
 	}
 
 	// Make sure that if the gas meter is charged by exceeding amount then not only an error
@@ -324,10 +293,10 @@ mod tests {
 		let mut gas_meter = GasMeter::<Test>::new(200);
 
 		// The first charge is should lead to OOG.
-		assert!(gas_meter.charge(&(), SimpleToken(300)).is_err());
+		assert!(gas_meter.charge(SimpleToken(300)).is_err());
 
 		// The gas meter is emptied at this moment, so this should also fail.
-		assert!(gas_meter.charge(&(), SimpleToken(1)).is_err());
+		assert!(gas_meter.charge(SimpleToken(1)).is_err());
 	}
 
 
@@ -336,6 +305,6 @@ mod tests {
 	#[test]
 	fn charge_exact_amount() {
 		let mut gas_meter = GasMeter::<Test>::new(25);
-		assert!(!gas_meter.charge(&(), SimpleToken(25)).is_err());
+		assert!(!gas_meter.charge(SimpleToken(25)).is_err());
 	}
 }
