@@ -63,17 +63,18 @@ mod benchmarking;
 
 pub mod weights;
 
-#[cfg(feature = "std")]
-use serde::{Serialize, Deserialize};
 use sp_std::prelude::*;
-use frame_support::{decl_module, decl_storage, decl_event, ensure, print, decl_error};
+use frame_support::{decl_module, decl_storage, decl_event, ensure, print, decl_error, PalletId};
 use frame_support::traits::{
 	Currency, Get, Imbalance, OnUnbalanced, ExistenceRequirement::KeepAlive,
 	ReservableCurrency, WithdrawReasons
 };
-use sp_runtime::{Permill, ModuleId, RuntimeDebug, traits::{
-	Zero, StaticLookup, AccountIdConversion, Saturating
-}};
+use sp_runtime::{
+	Permill, RuntimeDebug,
+	traits::{
+		Zero, StaticLookup, AccountIdConversion, Saturating
+	}
+};
 use frame_support::weights::{Weight, DispatchClass};
 use frame_support::traits::EnsureOrigin;
 use codec::{Encode, Decode};
@@ -89,7 +90,7 @@ pub type NegativeImbalanceOf<T, I=DefaultInstance> =
 
 pub trait Config<I=DefaultInstance>: frame_system::Config {
 	/// The treasury's module id, used for deriving its sovereign account ID.
-	type ModuleId: Get<ModuleId>;
+	type PalletId: Get<PalletId>;
 
 	/// The staking balance.
 	type Currency: Currency<Self::AccountId> + ReservableCurrency<Self::AccountId>;
@@ -155,7 +156,7 @@ pub trait SpendFunds<T: Config<I>, I=DefaultInstance> {
 pub type ProposalIndex = u32;
 
 /// A spending proposal.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
 pub struct Proposal<AccountId, Balance> {
 	/// The account proposing it.
@@ -246,7 +247,7 @@ decl_module! {
 		const Burn: Permill = T::Burn::get();
 
 		/// The treasury's module id, used for deriving its sovereign account ID.
-		const ModuleId: ModuleId = T::ModuleId::get();
+		const PalletId: PalletId = T::PalletId::get();
 
 		type Error = Error<T, I>;
 
@@ -346,7 +347,7 @@ impl<T: Config<I>, I: Instance> Module<T, I> {
 	/// This actually does computation. If you need to keep using it, then make sure you cache the
 	/// value and only call this once.
 	pub fn account_id() -> T::AccountId {
-		T::ModuleId::get().into_account()
+		T::PalletId::get().into_account()
 	}
 
 	/// The needed bond for a proposal whose spend is `value`.
